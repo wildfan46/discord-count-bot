@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Unified deployment for the Drink Counter Bot.
+
+Parameters:
+  ApiGatewayCertArn:
+    Type: String
+    Description: "The ARN from the AWS Certificate Manager (ACM) certificate for the custom domain."
+
+Resources:
+  # API Gateway
+  DiscordBotApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      EndpointConfiguration:
+        Type: REGIONAL
+      Domain:
+        DomainName: count.austinluing.com
+        CertificateArn: !Ref ApiGatewayCertArn
+        EndpointConfiguration: REGIONAL
+        SecurityPolicy: TLS_1_2
+        BasePath:
+          - /
+
+  # DynamoDB Table
+  DiscordCountTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: discord-counts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  # Lambda & API Gateway Trigger
+  DiscordBotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: discord-count-bot
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 10
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p312-cryptography:21
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DiscordCountTable
+          DISCORD_KEY_PARAM: '/discord-count-bot/prod/DISCORD_KEY'
+          TZ: 'America/Chicago'
+      # IAM Roles
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DiscordCountTable
+        - SSMParameterReadPolicy:
+            ParameterName: "discord-count-bot/*"
+      # API Gateway Trigger
+      Events:
+        DiscordApi:
+          Type: Api
+          Properties:
+            Path: /count
+            Method: post
+            RestApiId: !Ref DiscordBotApiGateway
+
+  # Explicit Lambda Permission
+  ConfigLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DiscordBotFunction
+      Principal: apigateway.amazonaws.com
