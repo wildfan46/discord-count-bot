@@ -1,0 +1,46 @@
+name: Deploy Lambda (SAM)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install SAM CLI
+        run: pip install aws-sam-cli
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Install dependencies
+        run: pip install -r src/requirements.txt
+
+      - name: Build
+        run: sam build
+
+      - name: Deploy
+        run: >
+          sam deploy
+          --stack-name ${{ secrets.SAM_STACK_NAME }}
+          --s3-bucket ${{ secrets.SAM_BUCKET }}
+          --no-confirm-changeset
+          --capabilities CAPABILITY_IAM
+          --parameter-overrides ApiGatewayCertArn=${{ secrets.CERT_ARN }}
