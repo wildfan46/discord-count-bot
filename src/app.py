@@ -26,7 +26,8 @@ def get_whimsical_response(count, user_name):
         responses = [
             f"A fine start {user_name}, but those are rookie numbers.",
             f"The journey of a thousand drinks begins with one, {user_name}.",
-            "Hydration is important. Wait, this isn't water."
+            "Hydration is important. Wait, this isn't water.",
+            "At least it isn't water I guess"
         ]
     elif 2 <= count <= 4:
         responses = [
