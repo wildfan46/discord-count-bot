@@ -1,6 +1,6 @@
 # Discord Count Bot
 
-[![CI/CD](https://github.com/wildfan46/discord-count-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/wildfan46/discord-count-bot/actions/workflows/deploy.yml)
+[![CI/CD](https://github.com/wildfan46/discord-count-bot/actions/workflows/deploy-lambda.yml/badge.svg)](https://github.com/wildfan46/discord-count-bot/actions/workflows/deploy-lambda.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A serverless Discord counting bot implemented as an AWS Lambda function.
