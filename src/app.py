@@ -13,6 +13,8 @@ from datetime import datetime
 
 from config import get_config
 
+from boto3.dynamodb.conditions import Key, Attr
+
 PUBLIC_KEY_HEX = get_config()['DISCORD_KEY']
 
 # Initialize the DynamoDB client
@@ -43,7 +45,7 @@ def get_whimsical_response(count, user_name):
             "Please remember what a 'vegetable' looks like tomorrow."
         ]
     else:
-        responses = [f"Logged it. Keep it classy, {user_name}."]
+        responses = [f"Logged it. Keep it classy, {user_name}"]
 
     return random.choice(responses)
 
@@ -66,14 +68,14 @@ def parse_user_date(user_input):
     return datetime.now().strftime('%m-%d-%Y')
 
 
-def craft_response(amount, drink_subtype, drink_type, occurred_at, username):
+def craft_response(amount, drink_subtype, drink_type, occurred_at, username, ytd_total):
     if drink_type == "wine":
         inner = f"Logged {amount} {drink_subtype} {drink_type}s for {occurred_at}"
     elif drink_subtype and not drink_subtype == 'Standard':
         inner = f"Logged {amount} {drink_subtype}s for {occurred_at}"
     else:
         inner = f"Logged {amount} {drink_type}s for {occurred_at}"
-    return f"{inner}. {get_whimsical_response(amount, username)}."
+    return f"{inner}. {get_whimsical_response(amount, username)}.\nYour YTD count is now {ytd_total}"
 
 
 def handle_log_command(data):
@@ -88,10 +90,11 @@ def handle_log_command(data):
     drink_type = options.get('type')
     drink_subtype = options.get('subtype', 'Standard')
     print("Before parsing date")
-    occurred_at = parse_user_date(options.get('date'))
+    occurred_at = parse_user_date(options.get('date', "today"))
 
     # Generate a unique Sort Key (SK) using timestamp and a UUID to prevent collisions
-    log_timestamp = datetime.now().isoformat()
+    current_time = datetime.now()
+    log_timestamp = current_time.isoformat()
 
     print("Before Dynamo write")
     # Put item into DynamoDB
@@ -109,7 +112,19 @@ def handle_log_command(data):
     )
     print("After Dynamo Write")
 
-    response = craft_response(amount, drink_subtype, drink_type, occurred_at, username)
+    response = table.query(
+        KeyConditionExpression=(
+                Key('PK').eq(f"SERVER#{guild_id}") &
+                Key('SK').begins_with(f"USER#{user_id}")
+        ),
+        FilterExpression=Attr('occured_at').contains(str(current_time.year))
+    )
+    print("After Dynamo Query")
+
+    items = response.get('Items', [])
+    total_amount = sum(item.get('amount', 0) for item in items)
+
+    response = craft_response(amount, drink_subtype, drink_type, occurred_at, username, total_amount)
 
     return response
 
