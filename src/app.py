@@ -64,8 +64,8 @@ def parse_user_date(user_input):
     )
 
     if parsed:
-        return parsed.strftime('%m-%d-%Y')
-    return datetime.now().strftime('%m-%d-%Y')
+        return parsed.strftime('%Y-%m-%d')
+    return datetime.now().strftime('%Y-%m-%d')
 
 
 def craft_response(amount, drink_subtype, drink_type, occurred_at, username, ytd_total):
