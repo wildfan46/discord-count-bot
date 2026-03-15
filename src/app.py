@@ -117,7 +117,7 @@ def handle_log_command(data):
                 Key('PK').eq(f"SERVER#{guild_id}") &
                 Key('SK').begins_with(f"USER#{user_id}")
         ),
-        FilterExpression=Attr('occured_at').contains(str(current_time.year))
+        FilterExpression=Attr('occurred_at').contains(str(current_time.year))
     )
     print("After Dynamo Query")
 
