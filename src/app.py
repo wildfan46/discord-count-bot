@@ -210,7 +210,7 @@ def lambda_handler(event, context):
 
     if data['type'] == 2:
         print("Handling Slash Command")
-        command_name = event['data']['name']
+        command_name = data['name']
         if command_name == 'log':
             return {
                 "statusCode": 200,
