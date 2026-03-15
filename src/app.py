@@ -96,8 +96,16 @@ def handle_log_command(data):
     current_time = datetime.now()
     log_timestamp = current_time.isoformat()
 
-    print("Before Dynamo write")
-    # Put item into DynamoDB
+    print("Before Dynamo writes")
+    # Put user metadata into DynamoDB
+    table.put_item(
+        Item={
+            'PK': f"SERVER#{guild_id}",
+            'SK': f"USER#{user_id}#METADATA",
+            'nickname': username,
+        }
+    )
+    # Put drink log into DynamoDB
     table.put_item(
         Item={
             'PK': f"SERVER#{guild_id}",
@@ -110,7 +118,7 @@ def handle_log_command(data):
             'logged_at': log_timestamp
         }
     )
-    print("After Dynamo Write")
+    print("After Dynamo Writes")
 
     response = table.query(
         KeyConditionExpression=(
@@ -129,14 +137,64 @@ def handle_log_command(data):
     return response
 
 
+def handle_stat_command(data):
+    guild_id = data['guild_id']
+    current_year = str(datetime.now().year)
+
+    print("Before Dynamo Query")
+
+    # Query EVERYTHING for this server
+    response = table.query(
+        KeyConditionExpression=Key('PK').eq(f"SERVER#{guild_id}")
+    )
+    items = response.get('Items', [])
+
+    print("After Dynamo Query")
+
+    names_cache = {}
+    user_data = {}
+
+    for item in items:
+        sk = item['SK']
+        user_id = sk.split('#')[1]
+
+        # It's a Metadata record
+        if sk.endswith('#METADATA'):
+            names_cache[user_id] = item.get('nickname', 'Unknown')
+
+        # It's a Drink Log
+        else:
+            if item.get('occurred_at', '').contains(current_year):
+                if user_id not in user_data:
+                    user_data[user_id] = {'total': 0, 'last_drink': ''}
+
+                user_data[user_id]['total'] += item.get('amount', 0)
+
+                # Keep the most recent consumption date
+                occurred = item.get('occurred_at', '')
+                if occurred > user_data[user_id]['last_drink']:
+                    user_data[user_id]['last_drink'] = occurred
+
+    print("After Drink totalling")
+
+    message_lines = ["**2026 Drink Totals:**"]
+
+    sorted_stats = sorted(user_data.items(), key=lambda x: x[1]['total'], reverse=True)
+
+    for uid, data in sorted_stats:
+        name = names_cache.get(uid, f"User {uid}")
+        message_lines.append(f"{name}: {data['total']} (Last: {data['last_drink']})")
+    print("After appending message lines")
+
+    return "\n".join(message_lines)
+
+
 def lambda_handler(event, context):
     print("Request Received")
-    # Get Discord headers
     signature = event['headers'].get('x-signature-ed25519')
     timestamp = event['headers'].get('x-signature-timestamp')
     body = event['body']
 
-    # 1. Verify Signature
     try:
         public_key = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(PUBLIC_KEY_HEX))
         public_key.verify(bytes.fromhex(signature), f"{timestamp}{body}".encode())
@@ -146,20 +204,28 @@ def lambda_handler(event, context):
 
     data = json.loads(body)
 
-    # 2. Handle Discord Ping
     if data['type'] == 1:
         print("Handling Ping")
         return {"statusCode": 200, "body": json.dumps({"type": 1})}
 
-    # 3. Handle Slash Command
     if data['type'] == 2:
         print("Handling Slash Command")
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "type": 4,  # Type 4 = "Channel Message with Source"
-                "data": {"content": handle_log_command(data)}
-            })
-        }
-
-    return {"statusCode": 400, "body": "unknown interaction"}
+        command_name = event['data']['name']
+        if command_name == 'log':
+            return {
+                "statusCode": 200,
+                "body": json.dumps({
+                    "type": 4,
+                    "data": {"content": handle_log_command(data)}
+                })
+            }
+        elif command_name == 'stats':
+            return {
+                "statusCode": 200,
+                "body": json.dumps({
+                    "type": 4,
+                    "data": {"content": handle_stat_command(data)}
+                })
+            }
+        else:
+            return {"statusCode": 400, "body": "unknown interaction"}
