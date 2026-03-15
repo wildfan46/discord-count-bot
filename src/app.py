@@ -164,14 +164,14 @@ def handle_stat_command(data):
 
         # It's a Drink Log
         else:
-            if item.get('occurred_at', '').contains(current_year):
+            occurred = item.get('occurred_at', '')
+            if current_year in occurred:
                 if user_id not in user_data:
                     user_data[user_id] = {'total': 0, 'last_drink': ''}
 
                 user_data[user_id]['total'] += item.get('amount', 0)
 
                 # Keep the most recent consumption date
-                occurred = item.get('occurred_at', '')
                 if occurred > user_data[user_id]['last_drink']:
                     user_data[user_id]['last_drink'] = occurred
 
