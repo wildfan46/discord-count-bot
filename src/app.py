@@ -209,8 +209,8 @@ def lambda_handler(event, context):
         return {"statusCode": 200, "body": json.dumps({"type": 1})}
 
     if data['type'] == 2:
-        print(f"Handling Slash Command {data}")
-        command_name = data['name']
+        print(f"Handling Slash Command")
+        command_name = data['data']['name']
         if command_name == 'log':
             return {
                 "statusCode": 200,
