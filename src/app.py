@@ -183,7 +183,7 @@ def handle_stat_command(data):
 
     for uid, data in sorted_stats:
         name = names_cache.get(uid, f"User {uid}")
-        message_lines.append(f"{name}: {data['total']} (Last: {data['last_drink']})")
+        message_lines.append(f"{name}: {data['total']} (Last updated: {data['last_drink']})")
     print("After appending message lines")
 
     return "\n".join(message_lines)
